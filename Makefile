@@ -3,7 +3,7 @@
 # Default build: debug
 BUILD ?= debug
 
-SRC_DIR = ./src
+SRC_DIR = ./src/C
 BUILD_DIR = ./build
 BIN_DIR = ./bin
 INCLUDE_DIR = ./include
