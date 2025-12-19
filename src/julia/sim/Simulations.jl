@@ -10,6 +10,11 @@ struct Parameters
     bc::String
 end
 
+struct Particles{T<:Integer, S<:Unsigned}
+    particles::Vector{T}
+    species::Vector{S}
+end
+
 function selectsim(updating_scheme)
     if updating_scheme == ("particle", "sequential")
         return sim_particlebased_sequential

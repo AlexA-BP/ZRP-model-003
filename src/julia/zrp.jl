@@ -40,6 +40,7 @@ function condensatescaling(
     bc::String="p", 
     updating_scheme::Tuple{String, String}=("particle", "sequential"),
     nsamples::Integer,
+    threshold::Real,
 )
     dt = 1/(1 + b)
     tsteps::Integer = trunc(t/dt)      
@@ -53,7 +54,9 @@ function condensatescaling(
     mean_condensate_sizes = zeros(tsteps, nsamples)
     for sample in ProgressBar(1:nsamples)
         for tstep in 1:tsteps
-            mean_condensate_sizes[tstep, sample] =  mean_condensate_size(lat, 3)
+            # mean_condensate_sizes[tstep, sample] = 
+            #     mean_condensate_size(lat, threshold)
+            mean_condensate_sizes[tstep, sample] = max_condensate(lat)
             particles, lat = sim!(particles, lat, prm)
         end
     end
