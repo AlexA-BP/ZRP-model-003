@@ -15,6 +15,12 @@ struct Particles{T<:Integer, S<:Unsigned}
     species::Vector{S}
 end
 
+"""
+    selectsim(updating_scheme)
+
+    Select the correct simulation. The choice
+
+"""
 function selectsim(updating_scheme)
     if updating_scheme == ("particle", "sequential")
         return sim_particlebased_sequential
@@ -27,10 +33,12 @@ function selectsim(updating_scheme)
     end
 end
 
+"Initialize array of positions of N particles on lattice of size L."
 function init_particles(prm::Parameters)
     return [rand(1:prm.L) for _ in 1:prm.N]
 end
 
+"Return the number of particles at each lattice site."
 function get_lattice(particles, prm::Parameters)
     lat = zeros(prm.L)
     for pos in particles
@@ -39,6 +47,7 @@ function get_lattice(particles, prm::Parameters)
     return lat
 end
 
+"Update the position of a particle in `particles` and `lat`."
 function update_particle_and_lattice!(particles, lat, i, x, step, prm::Parameters)
     new_x = apply_bc!(x + step, prm)
     particles[i] = new_x
@@ -47,11 +56,13 @@ function update_particle_and_lattice!(particles, lat, i, x, step, prm::Parameter
     return nothing
 end
 
+"Update the position of a particle in `particles`."
 function update_particle!(particles, i, x, step, prm::Parameters)1
     new_x = apply_bc!(x + step, prm)
     particles[i] = new_x
 end
 
+"Update the position of a particle in `lat`."
 function update_lattice!(lat, x, step, prm::Parameters)
     new_x = apply_bc!(x + step, prm)
     lat[x] -= 1
@@ -59,6 +70,7 @@ function update_lattice!(lat, x, step, prm::Parameters)
     return nothing
 end
 
+"Apply boundary conditions. So far only periodic boundary conditions are supported."
 function apply_bc!(x, prm::Parameters)
     if prm.bc in ["p", "periodic"]
         return apply_bc_periodic!(x, prm)
@@ -67,7 +79,8 @@ function apply_bc!(x, prm::Parameters)
     end
     return nothing
 end
-        
+
+"Apply periodic boundary conditions to `x` using the parameters `prm.L`."
 function apply_bc_periodic!(x, prm::Parameters)
     if x > prm.L
         x -= prm.L
@@ -77,6 +90,7 @@ function apply_bc_periodic!(x, prm::Parameters)
     return x
 end
 
+"Simulate ZRP by picking particles at random and updating in parallel."
 function sim_particlebased_parallel(particles, lat, prm::Parameters)
     for i = 1:prm.N
         x = particles[i]
@@ -93,6 +107,7 @@ function sim_particlebased_parallel(particles, lat, prm::Parameters)
     return particles, lat
 end
 
+"Simulate ZRP by picking particles at random and updating in sequence."
 function sim_particlebased_sequential(particles, lat, prm)
     for _ = 1:prm.N
         randi = rand(1:prm.N)
@@ -108,7 +123,8 @@ function sim_particlebased_sequential(particles, lat, prm)
     end
     return particles, lat
 end
-        
+
+"Simulate ZRP by picking lattice sites at ranodm and updating in sequence."
 function sim_latticebased_sequential(particles, lat, prm::Parameters)
     for _ = 1:prm.L
         randx = rand(1:prm.L)
@@ -124,6 +140,7 @@ function sim_latticebased_sequential(particles, lat, prm::Parameters)
     return particles, lat
 end
 
+"Simulate ZRP by picking lattice sites at random and updating in parallel."
 function sim_latticebased_parallel(particles, lat, prm::Parameters)
     lat_temp = copy(lat)
     for x in 1:prm.L
@@ -139,10 +156,12 @@ function sim_latticebased_parallel(particles, lat, prm::Parameters)
     return particles, lat
 end
 
+
 function get_step(x)
     return oneunit(x)
 end
 
+"Calclate hop rate at lattice site with occupancy `n`."
 function hop_rate(n, prm::Parameters)
     return (1 + prm.b/n)
 end
