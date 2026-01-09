@@ -1,5 +1,5 @@
-using Revise
 using HDF5
+using ProgressBars
 
 function mock_sim!(particles, prm)
     for i in 1:prm.N
@@ -27,6 +27,9 @@ end
 function main(N, L, t, chunkt)
     
     prm = Parameters(N, L, t)
+    chunkN = prm.N
+    chunkL = prm.L
+
 
     h5open("./data/test.h5", "w") do fid
         
@@ -35,37 +38,40 @@ function main(N, L, t, chunkt)
         dset_particle = create_dataset(fid, "mocksim/particles", datatype(Int), 
             dataspace((prm.t, prm.N)), chunk=(chunkt, chunkN))
 
-        dset_lattice = create_dataset(fid, "mocksim/lattice", datatype(Int), 
-            dataspace((prm.t, prm.L)), chunk=(chunkt, chunkL))
+        # dset_lattice = create_dataset(fid, "mocksim/lattice", datatype(Int), 
+        #     dataspace((prm.t, prm.L)), chunk=(chunkt, chunkL))
         
         attrs(groupid)["N"] = prm.N
         attrs(groupid)["L"] = prm.L
         attrs(groupid)["t"] = prm.t
 
-        # setting up chunking
-        chunk_particles = Array{eltype(particles)}(undef, (chunkt, prm.N))
-        chunk_lattice = Array{eltype(lattice)}(undef, (chunkt, prm.L))
-                
-        # setting up simulation
-        particles = [rand(1:prm.L) for _ = 1:prm.N]
-        lat = getlattice(particles, prm)        
+        ## setting up simulation
+        particles = rand(1:prm.L, prm.N)
+        # lat = getlattice(particles, prm)        
 
-        for ti in 1:div(prm.t, chunkt)
+        ## setting up chunking
+        # chunk_lat = Array{eltype(lat)}(undef, (prm.L, chunkt))
+
+        chunk_particles = zeros(eltype(particles), (prm.N, chunkt))
+        # chunk_lat = zeros(eltype(lat), (prm.L, chunkt))
+
+        num_chunks = div(prm.t, chunkt)
+        for ti in 1:num_chunks
 
             for tj in 1:chunkt
                 chunk_particles[:, tj] = particles
-                chunk_lattice[:, tj] = lattice
+                #chunk_lat[:, tj] = lat
                 
-                mock_sim!(particles, prm)
-                lat = getlattice(particles, prm)
+                for k in eachindex(particles)
+                    chunk_particles[k, tj] = oneunit(Int)
+                end
+
+                # mock_sim!(particles, prm)
+                # lat = getlattice(particles, prm)
             end
 
-            # TODO: get the indeces right
-            dset_particle[ti*chunkt:(ti+1)*chunkt, :] = chunk_particles
-            dset_lattice[ti, :] = lat      
+            #dset_particle[(ti-1)*chunkt + 1:ti*chunkt, :] = chunk_particles
+            #dset_lattice[(ti-1)*chunkt + 1:ti*chunkt, :] = chunk_lat     
         end
-        
-
     end
-
 end
