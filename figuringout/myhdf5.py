@@ -4,7 +4,7 @@ import numpy as np
 
 def main():
     with h5.File(Path("data/test.h5"), "r") as fid:
-        dset = np.array(fid["mocksim/lattice"])
+        dset = np.array(fid["mocksim/particles"])
 
         print(dset)
     

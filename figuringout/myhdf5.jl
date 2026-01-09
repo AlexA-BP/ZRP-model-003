@@ -17,10 +17,10 @@ function getlattice(particles, prm)
 end
 
 
-struct Parameters
-    N::Integer
-    L::Integer
-    t::Integer
+struct Parameters{T<:Integer}
+    N::T
+    L::T
+    t::T
 end
 
 
@@ -36,7 +36,7 @@ function main(N, L, t, chunkt)
         # setting up hdf5
         groupid = create_group(fid, "mocksim")
         dset_particle = create_dataset(fid, "mocksim/particles", datatype(Int), 
-            dataspace((prm.t, prm.N)), chunk=(chunkt, chunkN))
+            dataspace((prm.N, prm.t)), chunk=(chunkN, chunkt))
 
         # dset_lattice = create_dataset(fid, "mocksim/lattice", datatype(Int), 
         #     dataspace((prm.t, prm.L)), chunk=(chunkt, chunkL))
@@ -44,6 +44,7 @@ function main(N, L, t, chunkt)
         attrs(groupid)["N"] = prm.N
         attrs(groupid)["L"] = prm.L
         attrs(groupid)["t"] = prm.t
+
 
         ## setting up simulation
         particles = rand(1:prm.L, prm.N)
@@ -61,16 +62,12 @@ function main(N, L, t, chunkt)
             for tj in 1:chunkt
                 chunk_particles[:, tj] = particles
                 #chunk_lat[:, tj] = lat
-                
-                for k in eachindex(particles)
-                    chunk_particles[k, tj] = oneunit(Int)
-                end
 
-                # mock_sim!(particles, prm)
+                mock_sim!(particles, prm)
                 # lat = getlattice(particles, prm)
             end
 
-            #dset_particle[(ti-1)*chunkt + 1:ti*chunkt, :] = chunk_particles
+            dset_particle[:, ((ti-1)*chunkt + 1):(ti*chunkt)] = chunk_particles
             #dset_lattice[(ti-1)*chunkt + 1:ti*chunkt, :] = chunk_lat     
         end
     end
