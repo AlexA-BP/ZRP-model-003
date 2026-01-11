@@ -1,4 +1,5 @@
 using HDF5
+using ProgressBars
 
 include("sim/utils.jl")
 include("sim/basic_structs.jl")
@@ -10,13 +11,13 @@ function main(N, L, t, num_species, dt, bc, chunk_t)
     zrp = ZRP(prm)
     chunk = Chunk(zrp, prm, chunk_t)
 
-    # return prm, zrp, chunk
     h5open("./data/test.h5", "w") do fid
         
         group_id = create_group(fid, "group_test")
         attrs(group_id)["N"] = prm.N
         attrs(group_id)["L"] = prm.L
         attrs(group_id)["t"] = prm.t
+        attrs(group_id)["bc"] = prm.bc
         
         particles_id = create_dataset(
             fid,
@@ -30,21 +31,23 @@ function main(N, L, t, num_species, dt, bc, chunk_t)
             fid,
             "group_test/lattice",
             datatype(eltype(zrp.lattice)),
-            dataspace((prm.L, prm.num_species, prm.t)),
-            chunk=(prm.L, prm.num_species, chunk.t)
+            dataspace((prm.L*prm.num_species, prm.t)),
+            chunk=(prm.L*prm.num_species, chunk.t)
         )
         
-        for ti in 1:chunk.num
+        for ti in ProgressBar(1:chunk.num)
             for tj in 1:chunk.t
                 assign_hyperslab!(chunk.particles, zrp.particles, tj)
                 assign_hyperslab!(chunk.lattice, zrp.lattice, tj)
 
-                # update!(zrp, prm)
+                update!(zrp, prm, periodic_bc)
             end
-            # indeces = ((ti-1)*chunk.t + 1):(ti*chunk.t)
-            # particles_id[:, indeces] = chunk.particles
-            # lattice_id[:, :, indeces] = chunk.lattice
+            # return nothing
+            ts = ((ti-1)*chunk.t + 1):(ti*chunk.t)
+            particles_id[:, ts] = chunk.particles
+            lattice_id[:, ts] = chunk.lattice
         end
     end
+    return prm, zrp
     return nothing
 end

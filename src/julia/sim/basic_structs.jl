@@ -18,7 +18,8 @@ end
 struct ZRP{T<:Integer}
     particles::Vector{T}
     species::Vector{T}
-    lattice::Array{T}
+    lattice::Vector{T}
+    spec_at_loc::Vector{T}
     current_t::T
 end
 
@@ -26,8 +27,9 @@ function ZRP(prm::Parameters)
     particles = _init_particles(prm)    
     species = _init_species(prm)
     lattice = _init_lattice(particles, species, prm)
+    specs_at_loc = zeros(eltype(lattice), prm.num_species)
     current_t = zero(eltype(particles))
-    return ZRP(particles, species, lattice, current_t)
+    return ZRP(particles, species, lattice, specs_at_loc, current_t)
 end
 
 function _init_particles(prm)
@@ -35,13 +37,13 @@ function _init_particles(prm)
 end
 
 function _init_species(prm)
-    return rand(1:prm.num_species, prm.N)
+    return rand(0:prm.num_species-1, prm.N)
 end
 
 function _init_lattice(particles, species, prm)
-    lattice = zeros(eltype(particles), (prm.L, prm.num_species))
+    lattice = zeros(eltype(particles), prm.L * prm.num_species)
     for (i, s) in zip(particles, species)
-        lattice[i, s] += 1
+        lattice[i + s*prm.L] += one(eltype(lattice))
     end
     return lattice
 end
@@ -51,7 +53,7 @@ end
 # `num_chunk`.
 struct Chunk{T<:Integer} 
     particles::Matrix{T}
-    lattice::Array{T}
+    lattice::Matrix{T}
     t::T
     num::T
 end
@@ -60,11 +62,27 @@ function Chunk(zrp::ZRP, prm::Parameters, chunk_t::Integer)
     chunk_particles = zeros(eltype(zrp.particles), (prm.N, chunk_t))
     chunk_particles[:, 1] = zrp.particles
 
-    chunk_lattice = zeros(eltype(zrp.lattice), (prm.L, prm.num_species, chunk_t))
-    chunk_lattice[:, :, 1] = zrp.lattice
+    chunk_lattice = zeros(eltype(zrp.lattice), (prm.L * prm.num_species, chunk_t))
+    chunk_lattice[:, 1] = zrp.lattice
 
     chunk_num = div(prm.t, chunk_t)
 
     return Chunk(chunk_particles, chunk_lattice, chunk_t, chunk_num)
     
+end
+
+# Improve computation by providing an extra structure:
+struct Species{T<:Integer}
+    nums::Vector{T}
+end
+
+function Species(prm::Parameters)
+    nums = zeros(Int, prm.num_species)
+    return Species(nums)
+end
+
+
+# Struct handling the boundary conditions
+struct BC <: Function
+    bc
 end
