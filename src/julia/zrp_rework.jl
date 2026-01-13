@@ -11,7 +11,7 @@ function main(N, L, t, num_species, dt, bc, chunk_t)
     zrp = ZRP(prm)
     chunk = Chunk(zrp, prm, chunk_t)
 
-    h5open("./data/test.h5", "w") do fid
+    h5open("./data/test_symmetric.h5", "w") do fid
         
         group_id = create_group(fid, "group_test")
         attrs(group_id)["N"] = prm.N
@@ -42,12 +42,10 @@ function main(N, L, t, num_species, dt, bc, chunk_t)
 
                 update!(zrp, prm, periodic_bc)
             end
-            # return nothing
             ts = ((ti-1)*chunk.t + 1):(ti*chunk.t)
             particles_id[:, ts] = chunk.particles
             lattice_id[:, ts] = chunk.lattice
         end
     end
-    return prm, zrp
     return nothing
 end

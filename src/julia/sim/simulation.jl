@@ -19,15 +19,15 @@ function update!(zrp::ZRP, prm::Parameters, bc::F) where F<:Function
     return nothing
 end
 
-function hop_rate(ns)
-    return 1. + 3.5/ns
+function hop_rate(n)
+    return 1. + 3.5/n
 end
 
 function hop_rate(ns::AbstractVector, n::Integer) 
     return 1.0/n
 end
 
-function hop!(zrp::ZRP, prm::Parameters, bc, i, x0, s) # where F<:Function
+function hop!(zrp::ZRP, prm::Parameters, bc, i, x0, s)
     x1 = new_position(x0, prm, bc)
     hop_particles!(zrp, i, x1)    
     hop_lattice!(zrp, x0, x1, prm.L, s)
@@ -35,8 +35,8 @@ function hop!(zrp::ZRP, prm::Parameters, bc, i, x0, s) # where F<:Function
 end
 
 function new_position(x0, prm::Parameters, bc)
-    # x1 = x0 + rand((oneunit(x0), -oneunit(x0)))
-    x1 = x0 + oneunit(x0)
+    x1 = x0 + rand((oneunit(x0), -oneunit(x0)))
+    # x1 = x0 + oneunit(x0)
     x1 = bc(x1, prm.L)
     return x1    
 end
