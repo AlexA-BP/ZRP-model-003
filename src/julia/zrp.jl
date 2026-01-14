@@ -1,69 +1,51 @@
-using Revise
+using HDF5
 using ProgressBars
-using Statistics
-using GLMakie
 
-includet("./sim/Simulations.jl")
-includet("./condensatescaling/CondensateScaling.jl")
-using .Simulations
-using .CondensateScaling
+include("sim/utils.jl")
+include("sim/basic_structs.jl")
+include("sim/simulation.jl")
 
-function simulate(;L, N, b, t, bc="p", updating_scheme=("particle", "sequential"))
-    dt = 1/(1 + b)
-    t = trunc(t/dt)      
+function main(N, L, t, num_species, dt, bc, chunk_t)
 
-    prm = Parameters(L, N, b, dt, bc)       
+    prm = Parameters(N, L, t, num_species, dt, bc)
+    zrp = ZRP(prm)
+    chunk = Chunk(zrp, prm, chunk_t)
 
-    particles = init_particles(prm)
-    lat = get_lattice(particles, prm)
-    sim = selectsim(updating_scheme)
+    h5open("./data/test_symmetric.h5", "w") do fid
+        
+        group_id = create_group(fid, "group_test")
+        attrs(group_id)["N"] = prm.N
+        attrs(group_id)["L"] = prm.L
+        attrs(group_id)["t"] = prm.t
+        attrs(group_id)["bc"] = prm.bc
+        
+        particles_id = create_dataset(
+            fid,
+            "group_test/particles",
+            datatype(eltype(zrp.particles)),
+            dataspace((prm.N, prm.t)),
+            chunk=(prm.N, chunk.t)
+        )
 
-    open("data/test.dat", "w") do f
-        for i in ProgressBar(1:t)
+        lattice_id = create_dataset(
+            fid,
+            "group_test/lattice",
+            datatype(eltype(zrp.lattice)),
+            dataspace((prm.L*prm.num_species, prm.t)),
+            chunk=(prm.L*prm.num_species, chunk.t)
+        )
+        
+        for ti in ProgressBar(1:chunk.num)
+            for tj in 1:chunk.t
+                assign_hyperslab!(chunk.particles, zrp.particles, tj)
+                assign_hyperslab!(chunk.lattice, zrp.lattice, tj)
 
-            if mod(i-1,100) == 0
-                println(f, lat)
+                update!(zrp, prm, periodic_bc)
             end
-            particles, lat = sim(particles, lat, prm)
-
+            ts = ((ti-1)*chunk.t + 1):(ti*chunk.t)
+            particles_id[:, ts] = chunk.particles
+            lattice_id[:, ts] = chunk.lattice
         end
     end
-    return lat
-end
-
-function condensatescaling(
-    ;
-    L::Integer, 
-    N::Integer, 
-    b::Real, 
-    t::Real, 
-    bc::String="p", 
-    updating_scheme::Tuple{String, String}=("particle", "sequential"),
-    nsamples::Integer,
-    threshold::Real,
-)
-    dt = 1/(1 + b)
-    tsteps::Integer = trunc(t/dt)      
-
-    prm = Parameters(L, N, b, dt, bc)       
-
-    sim! = selectsim(updating_scheme)
-    particles = init_particles(prm)
-    lat = get_lattice(particles, prm)
-
-    mean_condensate_sizes = zeros(tsteps, nsamples)
-    for sample in ProgressBar(1:nsamples)
-        for tstep in 1:tsteps
-            # mean_condensate_sizes[tstep, sample] = 
-            #     mean_condensate_size(lat, threshold)
-            mean_condensate_sizes[tstep, sample] = max_condensate(lat)
-            particles, lat = sim!(particles, lat, prm)
-        end
-    end
-
-    final_result = mean(mean_condensate_sizes, dims=2)
-
-    # fig, ax, p = lines(collect(1:tsteps), final_result)
-
-    return mean_condensate_sizes
+    return nothing
 end
