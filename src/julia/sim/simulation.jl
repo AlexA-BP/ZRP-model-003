@@ -35,8 +35,8 @@ function hop!(zrp::ZRP, prm::Parameters, bc, i, x0, s)
 end
 
 function new_position(x0, prm::Parameters, bc)
-    x1 = x0 + rand((oneunit(x0), -oneunit(x0)))
-    # x1 = x0 + oneunit(x0)
+    # x1 = x0 + rand((oneunit(x0), -oneunit(x0)))
+    x1 = x0 + oneunit(x0)
     x1 = bc(x1, prm.L)
     return x1    
 end
