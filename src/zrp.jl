@@ -1,27 +1,31 @@
 using HDF5
 using ProgressBars
+using Distributions
 
 include("sim/utils.jl")
 include("sim/basic_structs.jl")
 include("sim/simulation.jl")
 
-function main(N, L, t, num_species, dt, bc, chunk_t)
+function main(N, L, t, num_species, dt, bc, chunk_t, fname="./data/test.h5")
+
+    us = ones(L)
+    us[rand(1:L, 2)] .= 0.2 
+    dt = 1/minimum(us)
 
     prm = Parameters(N, L, t, num_species, dt, bc)
     zrp = ZRP(prm)
     chunk = Chunk(zrp, prm, chunk_t)
 
-    h5open("./data/test_symmetric.h5", "w") do fid
+    h5open(fname, "w") do fid
         
-        group_id = create_group(fid, "group_test")
-        attrs(group_id)["N"] = prm.N
-        attrs(group_id)["L"] = prm.L
-        attrs(group_id)["t"] = prm.t
-        attrs(group_id)["bc"] = prm.bc
+        attrs(fid)["N"] = prm.N
+        attrs(fid)["L"] = prm.L
+        attrs(fid)["t"] = prm.t
+        attrs(fid)["bc"] = prm.bc
         
         particles_id = create_dataset(
             fid,
-            "group_test/particles",
+            "particles",
             datatype(eltype(zrp.particles)),
             dataspace((prm.N, prm.t)),
             chunk=(prm.N, chunk.t)
@@ -29,18 +33,27 @@ function main(N, L, t, num_species, dt, bc, chunk_t)
 
         lattice_id = create_dataset(
             fid,
-            "group_test/lattice",
+            "lattice",
             datatype(eltype(zrp.lattice)),
             dataspace((prm.L*prm.num_species, prm.t)),
             chunk=(prm.L*prm.num_species, chunk.t)
         )
         
+        hoprates_id = create_dataset(
+            fid,
+            "hoprates",
+            datatype(Float64),
+            dataspace((prm.L*prm.num_species, 1)),
+        )
+
+        hoprates_id[:, 1] = us
+
         for ti in ProgressBar(1:chunk.num)
             for tj in 1:chunk.t
                 assign_hyperslab!(chunk.particles, zrp.particles, tj)
                 assign_hyperslab!(chunk.lattice, zrp.lattice, tj)
 
-                update!(zrp, prm, periodic_bc)
+                update!(zrp, prm, periodic_bc, us)
             end
             ts = ((ti-1)*chunk.t + 1):(ti*chunk.t)
             particles_id[:, ts] = chunk.particles

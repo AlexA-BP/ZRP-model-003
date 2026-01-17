@@ -19,12 +19,41 @@ function update!(zrp::ZRP, prm::Parameters, bc::F) where F<:Function
     return nothing
 end
 
+# TODO this is temporary, so remember to fix it
+function update!(
+    zrp::ZRP, 
+    prm::Parameters, 
+    bc::F, 
+    u::Vector{T}
+) where F<:Function where T<:Real
+    for _ in 1:prm.N
+        k = rand(1:prm.N)
+        xk = zrp.particles[k]
+        sk = zrp.species[k]
+
+        for s in 0:prm.num_species-1
+            zrp.spec_at_loc[s+1] = zrp.lattice[xk + s*prm.L]
+        end
+        num_at_x = sum(zrp.spec_at_loc)
+
+        hopprob = hop_rate(xk , u)*prm.dt/num_at_x
+        if rand() < hopprob
+            hop!(zrp, prm, bc, k, xk, sk)            
+        end
+    end
+    return nothing
+end
+
 function hop_rate(n)
-    return 1. + 3.5/n
+    return 1. + 5. /n
 end
 
 function hop_rate(ns::AbstractVector, n::Integer) 
     return 1.0/n
+end
+
+function hop_rate(x::Integer, u::AbstractVector)
+    return u[x]
 end
 
 function hop!(zrp::ZRP, prm::Parameters, bc, i, x0, s)
