@@ -1,9 +1,9 @@
 using HDF5
 using ProgressBars
 
-include("../src/julia/sim/utils.jl")
-include("../src/julia/sim/basic_structs.jl")
-include("../src/julia/sim/simulation.jl")
+include("../../src/sim/utils.jl")
+include("../../src/sim/basic_structs.jl")
+include("../../src/sim/simulation.jl")
 
 function (@main)(ARGS)
 
