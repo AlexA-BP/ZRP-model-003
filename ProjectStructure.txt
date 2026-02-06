@@ -1,0 +1,7 @@
+Overall structure of this Project:
+
+First we'll focus on the implementation of the ZRP in julia:
+The code consists mostly of 2 different layers:
+	1. Structure for saving to HDF5 (which should be reasonably universal)
+		1.1. Code should be saved in chunks
+	2. The simulation code

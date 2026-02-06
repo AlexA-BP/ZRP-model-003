@@ -2,9 +2,9 @@ using HDF5
 using ProgressBars
 using Distributions
 
-include("sim/utils.jl")
-include("sim/basic_structs.jl")
-include("sim/simulation.jl")
+include("utils.jl")
+include("basic_structs.jl")
+include("simulation.jl")
 
 function main(N, L, t, num_species, dt, bc, chunk_t, fname="./data/test.h5")
 
