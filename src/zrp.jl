@@ -9,6 +9,7 @@ include("sim/simulation.jl")
 function main(N, L, t, num_species, dt, bc, chunk_t, fname="./data/test.h5")
 
     us = ones(L)
+    
     us[rand(1:L, 2)] .= 0.2 
     dt = 1/minimum(us)
 
