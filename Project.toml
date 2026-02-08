@@ -1,10 +1,4 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-Plotly = "58dd65bb-95f3-509e-9936-c39a10fdeae7"
 ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
-StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

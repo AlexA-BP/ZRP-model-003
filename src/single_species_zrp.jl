@@ -1,38 +1,20 @@
+using Random
+const rng = Xoshiro(0)
+
 using HDF5
 
-struct Parameters{T<:Integer, S<:Real, U<:AbstractString}
-    N::T
-    L::T
-    t_tot::T
-    dt::S
-    bc::U
-end
+include("sim/Structs.jl")
+include("sim/BoundaryConditions.jl")
+include("sim/kinetic_monte_carlo_single_species.jl")
 
-struct SingleZRP{T<:Integer}
-    particles::Vector{T}
-    lattice::Vector{T}
-end
+using .BoundaryConditions
 
-function SingleZRP(params::Parameters)
-    particles = _init_particles(params),
-    lattice = _init_lattice(particles, params)
-    return ZRP(particles, lattice)
-end
-
-function _init_particles(params::Parameters) 
-    return rand(1:params.L, params.N)
-end
-
-function _init_lattice(particles, params::Parameters)
-    lattice = zeros(eltype(particles), params.L)
-    for x in particles
-        lattice[x] += one(eltype(lattice))
-    end
-    return lattice
-end
-
-
-function setup_hdf5(params::Parameters, szrp::SingleZRP, chunksize::Integer)
+function setup_hdf5(
+    fname::AbstractString, 
+    params::Parameters,
+    szrp::SingleZRP,
+    chunk_size::Integer
+)
     h5open(fname, "w") do fid
 
         attrs(fid)["N"] = params.N
@@ -46,44 +28,112 @@ function setup_hdf5(params::Parameters, szrp::SingleZRP, chunksize::Integer)
             "particles",
             datatype(eltype(szrp.particles)),
             dataspace((params.N, params.t_tot));
-            chunk=(params.N, chunksize)
+            chunk=(params.N, chunk_size)
         )
 
         create_dataset(
             fid,
             "lattice",
             datatype(eltype(szrp.lattice)),
-            dataspace((params.L, params.t));
-            chunk=(params.L, chunksize)
+            dataspace((params.L, params.t_tot));
+            chunk=(params.L, chunk_size)
+        )
+        
+        create_dataset(
+            fid,
+            "times",
+            datatype(Int),
+            dataspace((params.t_tot,));
+            chunk=(chunk_size,)
         )
     end
     return nothing
 end
 
+function run_and_write_chunked_simulation(
+    fname::AbstractString,
+    params::Parameters,
+    szrp::SingleZRP,
+    chunk_size::Integer
+)
+    h5open(fname, "r+") do fid 
+        lattice_id = fid["lattice"]
+        times_id = fid["times"]
+        lattice_chunk = zeros(eltype(szrp.lattice), (params.L, chunk_size))
+        times_chunk = zeros(Int, (chunk_size,))
+
+        num_chunks = div(params.t_tot, chunk_size)
+        for i in 1:num_chunks
+            chunk_start = (i-1)*chunk_size
+            chunk_end = i*chunk_size
+            chunk_interval = (chunk_start+1):chunk_end
+
+            fill_simulation_chunk!(
+                lattice_chunk, 
+                times_chunk, 
+                params, 
+                szrp, 
+                chunk_size, 
+                chunk_start,
+            )
+    
+            lattice_id[:, chunk_interval] = lattice_chunk
+            times_id[chunk_interval] = times_chunk
+        end
+    end
+    return nothing
+end
+
+function fill_simulation_chunk!(
+    lattice_chunk::AbstractArray,
+    times_chunk::AbstractVector,
+    params::Parameters,
+    szrp::SingleZRP,
+    chunk_size::Integer,
+    chunk_start::Integer,
+)
+    for ti in 1:chunk_size
+        kinetic_monte_carlo_step!(
+            szrp, params, chunk_start + ti
+        )
+        lattice_chunk[:, ti] = szrp.lattice
+        times_chunk[ti] = chunk_start + ti
+    end
+    return nothing
+end
+
+function hop_rate(n::Integer, params::Parameters) 
+    return 1. + params.b/n
+end
 
 function (@main)(
     fname::AbstractString,
     num_particles::Integer,
     system_size::Integer,
+    bc::AbstractString,
     dt::Real,
     tot_timesteps::Integer,
-    chunksize::Integer,
+    chunk_size::Integer,
+    b::Real
 ) 
 
     # initialize simulation
-    prm = Parameters(
+    params = Parameters(
         num_particles,
         system_size,
         tot_timesteps,
         dt,
         bc,
+        b,
     )
-    szrp = SingleZRP(prm)
+    szrp = SingleZRP(params, hop_rate, bcs[params.bc])
+
 
     # initialize HDF5 file
-    setup_hdf5(params, szrp, chunksize)
+    setup_hdf5(fname, params, szrp, chunk_size,)
 
     # run simulation and write to HDF5 file
+    run_and_write_chunked_simulation(fname, params, szrp, chunk_size,)
 
-
+    return params, szrp
 end
