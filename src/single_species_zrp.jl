@@ -20,6 +20,7 @@ function (@main)(
     dt::Real,
     tot_timesteps::Integer,
     chunk_size::Integer,
+    save_after_num_steps::Integer,
     b::Real
 ) 
 
@@ -28,12 +29,19 @@ function (@main)(
         num_particles, system_size, tot_timesteps, dt, bc, b,
     )
     szrp = SingleZRP(params, hop_rate, bcs[params.bc])
+    chunk = Chunks(
+        chunk_size,
+        div(tot_timesteps, chunk_size*save_after_num_steps), 
+        save_after_num_steps
+    )
 
     # initialize HDF5 file
-    setup_hdf5(fname, params, szrp, chunk_size,)
+    setup_hdf5(fname, params, szrp, chunk,)
 
     # run simulation and write to HDF5 file
-    run_and_write_chunked_simulation(fname, params, szrp, chunk_size,)
+    run_and_write_chunked_simulation(
+        fname, params, szrp, chunk,
+    )
 
     return nothing
 end

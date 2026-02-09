@@ -37,3 +37,9 @@ function _init_lattice(particles, params::Parameters)
     end
     return lattice
 end
+
+struct Chunks{T<:Integer}
+    size::T
+    num::T
+    saving_time_step::T
+end

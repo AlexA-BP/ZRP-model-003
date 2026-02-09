@@ -4,7 +4,7 @@ function setup_hdf5(
     fname::AbstractString, 
     params::Parameters,
     szrp::SingleZRP,
-    chunk_size::Integer
+    chunk::Chunks,
 )
     h5open(fname, "w") do fid
 
@@ -18,24 +18,24 @@ function setup_hdf5(
             fid,
             "particles",
             datatype(eltype(szrp.particles)),
-            dataspace((params.N, params.t_tot));
-            chunk=(params.N, chunk_size)
+            dataspace((params.N, chunk.num*chunk.size));
+            chunk=(params.N, chunk.size)
         )
 
         create_dataset(
             fid,
             "lattice",
             datatype(eltype(szrp.lattice)),
-            dataspace((params.L, params.t_tot));
-            chunk=(params.L, chunk_size)
+            dataspace((params.L, chunk.num*chunk.size));
+            chunk=(params.L, chunk.size)
         )
         
         create_dataset(
             fid,
             "times",
             datatype(Int),
-            dataspace((params.t_tot,));
-            chunk=(chunk_size,)
+            dataspace((chunk.num*chunk.size,));
+            chunk=(chunk.size,)
         )
     end
     return nothing
@@ -45,18 +45,17 @@ function run_and_write_chunked_simulation(
     fname::AbstractString,
     params::Parameters,
     szrp::SingleZRP,
-    chunk_size::Integer
+    chunk::Chunks,
 )
     h5open(fname, "r+") do fid 
         lattice_id = fid["lattice"]
         times_id = fid["times"]
-        lattice_chunk = zeros(eltype(szrp.lattice), (params.L, chunk_size))
-        times_chunk = zeros(Int, (chunk_size,))
+        lattice_chunk = zeros(eltype(szrp.lattice), (params.L, chunk.size))
+        times_chunk = zeros(Int, (chunk.size,))
 
-        num_chunks = div(params.t_tot, chunk_size)
-        for i in 1:num_chunks
-            chunk_start = (i-1)*chunk_size
-            chunk_end = i*chunk_size
+        for i in 1:chunk.num
+            chunk_start = (i-1)*chunk.size
+            chunk_end = i*chunk.size
             chunk_interval = (chunk_start+1):chunk_end
 
             fill_simulation_chunk!(
@@ -64,7 +63,7 @@ function run_and_write_chunked_simulation(
                 times_chunk, 
                 params, 
                 szrp, 
-                chunk_size, 
+                chunk,
                 chunk_start,
             )
     
@@ -80,15 +79,19 @@ function fill_simulation_chunk!(
     times_chunk::AbstractVector,
     params::Parameters,
     szrp::SingleZRP,
-    chunk_size::Integer,
+    chunk::Chunks,
     chunk_start::Integer,
 )
-    for ti in 1:chunk_size
-        kinetic_monte_carlo_step!(
-            szrp, params, chunk_start + ti
-        )
-        lattice_chunk[:, ti] = szrp.lattice
-        times_chunk[ti] = chunk_start + ti
+    for k in 1:chunk.size
+        for ti in 1:chunk.saving_time_step
+            kinetic_monte_carlo_step!(
+                szrp, 
+                params, 
+                chunk_start + (k-1)*chunk.saving_time_step + ti
+            )
+        end
+        lattice_chunk[:, k] = szrp.lattice
+        times_chunk[k] = chunk_start + k*chunk.saving_time_step
     end
     return nothing
 end
