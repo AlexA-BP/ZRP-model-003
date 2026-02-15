@@ -9,7 +9,7 @@ include("sim/filehandling.jl")
 using .BoundaryConditions
 
 function hop_rate(n::Integer, params::Parameters) 
-    return 1. + params.b/n
+    return 1 + params.b/n
 end
 
 function (@main)(
@@ -20,20 +20,21 @@ function (@main)(
     dt::Real,
     tot_timesteps::Integer,
     chunk_size::Integer,
-    save_after_num_steps::Integer,
+    time_steps_between_saves::Integer,
     b::Real
 ) 
 
     # initialize simulation
     params = Parameters(
-        num_particles, system_size, tot_timesteps, dt, bc, b,
+        num_particles, 
+        system_size, 
+        tot_timesteps, 
+        dt, 
+        bc, 
+        b,
     )
     szrp = SingleZRP(params, hop_rate, bcs[params.bc])
-    chunk = Chunks(
-        chunk_size,
-        div(tot_timesteps, chunk_size*save_after_num_steps), 
-        save_after_num_steps
-    )
+    chunk = Chunks(chunk_size, time_steps_between_saves, tot_timesteps)
 
     # initialize HDF5 file
     setup_hdf5(fname, params, szrp, chunk,)

@@ -41,5 +41,16 @@ end
 struct Chunks{T<:Integer}
     size::T
     num::T
-    saving_time_step::T
+    time_steps_between_saves::T
+    function Chunks{T}(
+        size::T, time_steps_between_saves::T, total_timesteps::T
+    ) where {T<:Integer}
+        num = div(total_timesteps, size*time_steps_between_saves)
+        new(size, num, time_steps_between_saves)
+    end
+end
+function Chunks(
+    size::T, time_steps_between_saves::T, total_timesteps::T
+) where T<:Integer
+    return Chunks{T}(size, time_steps_between_saves, total_timesteps)
 end

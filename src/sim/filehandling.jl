@@ -1,4 +1,5 @@
 using HDF5
+using ProgressBars
 
 function setup_hdf5(
     fname::AbstractString, 
@@ -53,7 +54,7 @@ function run_and_write_chunked_simulation(
         lattice_chunk = zeros(eltype(szrp.lattice), (params.L, chunk.size))
         times_chunk = zeros(Int, (chunk.size,))
 
-        for i in 1:chunk.num
+        for i in ProgressBar(1:chunk.num)
             chunk_start = (i-1)*chunk.size
             chunk_end = i*chunk.size
             chunk_interval = (chunk_start+1):chunk_end
@@ -83,15 +84,15 @@ function fill_simulation_chunk!(
     chunk_start::Integer,
 )
     for k in 1:chunk.size
-        for ti in 1:chunk.saving_time_step
+        for ti in 1:chunk.time_steps_between_saves
             kinetic_monte_carlo_step!(
                 szrp, 
                 params, 
-                chunk_start + (k-1)*chunk.saving_time_step + ti
+                (chunk_start + (k-1))*chunk.time_steps_between_saves + ti
             )
         end
         lattice_chunk[:, k] = szrp.lattice
-        times_chunk[k] = chunk_start + k*chunk.saving_time_step
+        times_chunk[k] = (chunk_start + k)*chunk.time_steps_between_saves
     end
     return nothing
 end
