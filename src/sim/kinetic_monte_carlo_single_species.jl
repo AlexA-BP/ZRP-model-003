@@ -35,12 +35,3 @@ function _new_position(x0, szrp::SingleZRP, params::Parameters)
     x1 = szrp.bc(x1, params)
     return x1
 end
-
-function bc(x, params)
-    if x < 1
-        return params.L
-    elseif x > params.L
-        return one(x)
-    end
-    return x
-end
