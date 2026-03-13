@@ -20,4 +20,13 @@ function simple_weak_strong_nr_hop_rate_B(n_A, n_B, alpha, chi)
     return n_A^(-alpha) / ((n_A + n_B)^(chi))
 end
 
-hop_rates["simple_weak_strong_nr_hop_rate"] = simple_weak_strong_nr_hop_rate
+function simple_weak_strong_nr_hop_rate_dt(N_A, N_B, alpha, chi)
+    possible_max_values = [N_A*float(N_B)^(alpha - chi), N_B*float(N_A)^(-alpha - chi), N_B]
+    return 1/max(possible_max_values...)
+end
+
+hop_rates["simple_weak_strong_nr_hop_rate"] = (
+    simple_weak_strong_nr_hop_rate, simple_weak_strong_nr_hop_rate_dt
+)
+
+end
