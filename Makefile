@@ -20,13 +20,13 @@ TARGET = $(TARGET_$(shell echo '$(BUILD)' | tr '[:lower:]' '[:upper:]'))
 
 CXX = g++
 
-CXXFLAGS_COMMON = -Wall -Wextra -std=c++17 -I$(INCLUDE_DIR) -L$(LIB_DIR)
+CXXFLAGS_COMMON = -Wall -Wextra -std=c++20 -I$(INCLUDE_DIR) -L$(LIB_DIR)
 
 # Linker Flags
 LDLFLAGS =-Wl,-rpath=$(LIB_DIR) \
 				-Wl,--enable-new-dtags -g -fsanitize=address
 
-LIBS = -lhdf5_hl_cpp -lhdf5_cpp -lhdf5_hl -lhdf5 -lz -ldl -lm -lpcg_random
+LIBS = -lhdf5_hl_cpp -lhdf5_cpp -lhdf5_hl -lhdf5 -lz -ldl -lm 
 
 CXXFLAGS_DEBUG = -g -O0
 CXXFLAGS_RELEASE = -O2 -DNDEBUG
@@ -36,7 +36,7 @@ CXXFLAGS = $(CXXFLAGS_COMMON) $(CXXFLAGS_$(BUILD))
 # create directories if they don't exist
 $(shell mkdir -p $(BUILD_DIR) $(BIN_DIR))
 
-$(TARGET): $(OBJS) $(BUILD_DIR)/entropy.o 
+$(TARGET): $(OBJS) 
 	$(CXX) $(CXXFLAGS) $(LDLFLAGS) -o $@ $^ $(LIBS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
@@ -45,7 +45,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 .PHONY: clean clean-all
 
 clean:
-	$(shell find $(BUILD_DIR) ! -name "entropy.o" -type f -exec rm -f {} + )
+	$(RM) -r $(BUILD_DIR)/*
 	$(RM) -r $(BIN_DIR)/*
 
 .PHONY: all
