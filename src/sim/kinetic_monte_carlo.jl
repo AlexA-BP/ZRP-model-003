@@ -1,54 +1,57 @@
 function kinetic_monte_carlo_step!(
-    state::TwoSpeciesState,
-    prm::Parameters,
+    state::NSpeciesState,
+    model::ModelParameters,
     modelfunc::ModelFunctions,
     t::Integer,
+    rng::AbstractRNG,
 )
-    for _ in 1:prm.N
-        i = rand(1:prm.N)
-        if i <= prm.N_A
-            species = "A"
-            xi = state.particles_A[i]
-            n_S = state.lattice_A[xi]
-        elseif i > prm.N_A
-            species = "B"
-            xi = state.particles_B[i-prm.N_A]
-            n_S = state.lattice_B[xi]
-        end
-        n_A = state.lattice_A[xi]
-        n_B = state.lattice_B[xi]
+    for _ in 1:model.N
+        i = rand(rng, 1:model.N)
+        xi = state.particles[i]
+        si = state.species[i]
 
-        hop_prob = n_S*modelfunc.hop_rate(species, n_A, n_B, prm.alpha, prm.chi) * prm.dt
-        if rand() < hop_prob
-            hop!(state, prm, modelfunc, i, xi)
+        hop_prob = get_hop_prob(xi, si, state, model, modelfunc) 
+        if rand(rng) < hop_prob
+            hop!(state, model, modelfunc, i, si, xi, rng)
         end
     end
     return nothing
 end
 
+function get_hop_prob(
+    xi::Integer, 
+    si::Integer,
+    state::NSpeciesState,
+    model::ModelParameters, 
+    modelfunc::ModelFunctions,
+)
+    n_A_i = state.lattice[xi, 1]
+    n_B_i = state.lattice[xi, 2]
+    
+    single_hop_rate = modelfunc.hop_rate(si, n_A_i, n_B_i, model.alpha, model.chi)
+
+    return state.lattice[xi, si] * single_hop_rate * model.dt
+end
+
 function hop!(
-    state::TwoSpeciesState,
-    prm::Parameters,
+    state::NSpeciesState,
+    model::ModelParameters,
     modelfunc::ModelFunctions,
     particle_index::Integer, 
+    particle_species::Integer,
     old_position::Real,
+    rng::AbstractRNG,
 )
-    new_position = _new_position(old_position, modelfunc.bc, prm)
-    if particle_index <= prm.N_A
-        state.particles_A[particle_index] = new_position
-        state.lattice_A[old_position] -= 1
-        state.lattice_A[new_position] += 1
-    elseif particle_index > prm.N_B
-        state.particles_B[particle_index-prm.N_A] = new_position
-        state.lattice_B[old_position] -= 1
-        state.lattice_B[new_position] += 1
-    end
-    
+    new_position = _new_position(old_position, modelfunc.bc, model, rng)
+    state.particles[particle_index] = new_position
+    state.lattice[old_position, particle_species] -= 1
+    state.lattice[new_position, particle_species] += 1
+   
     return nothing 
 end
 
-function _new_position(x0, bc::Function, prm::Parameters)
-    x1 = x0 + rand(rng, (1, -1))
-    x1 = bc(x1, prm)
+function _new_position(x0, bc::Function, model::ModelParameters, rng::AbstractRNG)
+    x1 = x0 + rand(rng, model.hop_directions)
+    x1 = bc(x0, model)
     return x1
 end

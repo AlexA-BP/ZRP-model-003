@@ -2,61 +2,74 @@
 ##          Taking care of model parameters           ##
 ## ================================================== ##
 
-abstract type Parameters end
+abstract type AbstractParameters end
 
-struct OneSpeciesParameters{T<:Integer, S<:Real, U<:AbstractString} <: Parameters
+struct ModelParameters{T<:Integer, S<:Real, U<:AbstractString} <: AbstractParameters
+    Ns::Vector{T}
+    num_spec::T
     N::T
     L::T
     t_tot::T
     dt::S
     bc::U
-end
-
-struct TwoSpeciesParameters{T<:Integer, S<:Real, U<:AbstractString} <: Parameters
-    N_A::T
-    N_B::T
-    N::T
-    L::T
-    t_tot::T
-    dt::S
     alpha::S
     chi::S
-    bc::U
+    hop_directions::Tuple{T, T}
 end
 
-abstract type State end
-
-struct TwoSpeciesState{T<:Integer} <: State
-    particles_A::Vector{T}
-    particles_B::Vector{T}
-    lattice_A::Vector{T}
-    lattice_B::Vector{T}
+struct ModelFunctions{F1, F2 <: Function} <: AbstractParameters
+    hop_rate::F1
+    bc::F2
 end
 
-function TwoSpeciesState(prm::TwoSpeciesParameters)
-    particles_A = _init_particles(prm.N_A, prm.L)
-    particles_B = _init_particles(prm.N_B, prm.L)
+abstract type AbstractState end
 
-    lattice_A = _init_lattice(particles_A, prm.L)
-    lattice_B = _init_lattice(particles_B, prm.L)
-
-    return TwoSpeciesState(particles_A, particles_B, lattice_A, lattice_B)
+struct NSpeciesState{T <: Integer} <: AbstractState
+    particles::Vector{T}
+    species::Vector{T}
+    lattice::Matrix{T}
 end
 
-struct ModelFunctions{F, G <: Function}
-    hop_rate::F
-    bc::G
+function NSpeciesState(model::ModelParameters, rng::AbstractRNG)
+    particles = _init_particles(model.N, model.L, rng)
+    species = _init_species(particles, model.Ns)
+    lattice = _init_lattice(particles, species, model.L)
+    return NSpeciesState(particles, species, lattice)
 end
 
-function _init_particles(num_particles, lattice_size) 
+function _init_particles(num_particles, lattice_size, rng::AbstractRNG) 
     return rand(rng, 1:lattice_size, num_particles)
 end
 
-function _init_lattice(particles, lattice_size)
-    lattice = zeros(eltype(particles), lattice_size)
-    for x in particles
-        lattice[x] += one(eltype(lattice))
+function _init_species(particles, nums_species)
+    species = Vector{Int}(undef, size(particles))
+    spec_names = collect(1:length(nums_species))
+    for k in eachindex(species)
+        i = pidgeon_hole_element_into_array(k, cumsum(nums_species))    
+        species[k] = spec_names[i] 
     end
+    return species
+end
+
+"""
+For a sorted array of size n: a_1 <= a_2 <= ... <= a_n, pidgeon hole an element 
+x into it. Returns the index i, s.t. a_i <= x <= a_{i+1}. Returns the last index 
+n, if x > a_n. 
+"""
+function pidgeon_hole_element_into_array(x, arr)::Int
+    for i in eachindex(arr)
+        if x <= arr[i]
+            return i
+        end
+    end
+    return length(arr)
+end
+
+function _init_lattice(particles, species, L)
+    lattice = zeros(eltype(particles), (L, 2))
+    for (x, s) in zip(particles, species)
+        lattice[x, s] += 1
+    end        
     return lattice
 end
 
@@ -77,3 +90,5 @@ function Chunks(
 ) where T<:Integer
     return Chunks{T}(size, time_steps_between_saves, total_timesteps)
 end
+
+# 
