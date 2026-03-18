@@ -14,6 +14,8 @@ function setup_hdf5(
 )
     h5open(fname, "w") do fid
 
+
+        # save all parameters to hdf5 as attributes
         attrs(fid)["N_A"] = model.Ns[1]
         attrs(fid)["N_B"] = model.Ns[2]
         attrs(fid)["N"] = model.N
@@ -29,18 +31,31 @@ function setup_hdf5(
         attrs(fid)["chi"] = model.chi
         attrs(fid)["chunk_size"] = chunk.size
         attrs(fid)["chunk_num"] = chunk.num
-        attrs(fid)["chunk_time_steps_between_snapshots"] = chunk.time_steps_between_saves
+        attrs(fid)["chunk_snapshot_phys_time_diff"] = (
+            chunk.snapshot_phys_time_diff)
 
 
-        fid["species"] = state.species
+        # initialize the datasets
+        blosc_compression_level = 3
+
+
+        # species can be saved immediately, since it stays constant throughout
+        # the simulation
+        fid[
+            "species", 
+            chunk=(model.N,), 
+            blosc=blosc_compression_level
+        ] = state.species
         
+        # initialize empty "particles", "lattice" and "times" datasets
+
         create_dataset(
             fid,
             "particles",
             datatype(eltype(state.particles)),
             dataspace((model.N, chunk.num*chunk.size)),
             chunk=(model.N, chunk.size),
-            blosc=3,
+            blosc=blosc_compression_level ,
         )
 
         create_dataset(
@@ -49,7 +64,7 @@ function setup_hdf5(
             datatype(eltype(state.lattice)),
             dataspace((model.L, model.num_spec, chunk.num*chunk.size)),
             chunk=(model.L, model.num_spec, chunk.size),
-            blosc=3,
+            blosc=blosc_compression_level,
         )
         
 
@@ -59,12 +74,15 @@ function setup_hdf5(
             datatype(Int),
             dataspace((chunk.num*chunk.size,)),
             chunk=(chunk.size,),
-            blosc=3,
+            blosc=blosc_compression_level,
         )
     end
     return nothing
 end
 
+"""
+Run the simulation in chunks and write the chunks to HDF5. 
+"""
 function run_and_write_chunked_simulation(
     fname::AbstractString,
     model::ModelParameters,
@@ -74,59 +92,77 @@ function run_and_write_chunked_simulation(
     rng::AbstractRNG,
 )
     h5open(fname, "r+") do fid 
+
+        # open datasets for saving
+        particles_id = fid["particles"]
         lattice_id = fid["lattice"]
         times_id = fid["times"]
 
+        # init in-memory chunks for saving data
+        particles_chunk = zeros(eltype(state.particles), (model.N, chunk.size))
         lattice_chunk = zeros(
             eltype(state.lattice), (model.L, model.num_spec, chunk.size)
         )
         times_chunk = zeros(Int, (chunk.size,))
 
+        # loop over chunks
         for i in 1:chunk.num
-            chunk_start = (i-1)*chunk.size
-            chunk_end = i*chunk.size
-            chunk_interval = (chunk_start+1):chunk_end
+
+            # 
+            chunk_start_time = (i-1)*chunk.size
+            chunk_end_time = i*chunk.size
+            chunk_time_interval = (chunk_start_time+1):chunk_end_time
 
             fill_simulation_chunk!(
+                particles_chunk, 
                 lattice_chunk, 
                 times_chunk, 
                 model, 
                 state, 
                 modelfunc,
                 chunk,
-                chunk_start,
+                chunk_start_time,
                 rng,
             )
     
-            lattice_id[:, :, chunk_interval] = lattice_chunk
-            times_id[chunk_interval] = times_chunk
+            particles_id[:, chunk_time_interval] = particles_chunk
+            lattice_id[:, :, chunk_time_interval] = lattice_chunk
+            times_id[chunk_time_interval] = times_chunk
         end
     end
     return nothing
 end
 
 function fill_simulation_chunk!(
+    particles_chunk::AbstractArray,
     lattice_chunk::AbstractArray,
     times_chunk::AbstractVector,
     model::ModelParameters,
     state::NSpeciesState,
     modelfunc::ModelFunctions,
     chunk::Chunks,
-    chunk_start::Integer,
+    chunk_start_time::Integer,
     rng::AbstractRNG,
 )
     for k in 1:chunk.size
-        for ti in 1:chunk.time_steps_between_saves
+        for ti in 1:chunk.snapshot_phys_time_diff
+
+            current_time = (
+                (chunk_start_time + (k-1))*chunk.snapshot_phys_time_diff + ti
+            )
+
             kinetic_monte_carlo_step!(
                 state, 
                 model, 
                 modelfunc,
-                (chunk_start + (k-1))*chunk.time_steps_between_saves + ti,
+                current_time,
                 rng,
             )
         end
+
+        particles_chunk[:, k] = state.particles
         lattice_chunk[:, :, k] = state.lattice
-        times_chunk[k] = (chunk_start + k)*chunk.time_steps_between_saves
+        times_chunk[k] = (chunk_start_time + k)*chunk.snapshot_phys_time_diff
     end
     return nothing
 end

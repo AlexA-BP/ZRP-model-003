@@ -28,19 +28,18 @@ end
 
 function simple_weak_strong_nr_hop_rate_dt(N_A, N_B, alpha, chi)
     max_val = 0
-    for nA in 0:N_A
-        for nB in 0:N_B
-            if nA != 0
-                hrA = nA*simple_weak_strong_nr_hop_rate_A(nA, nB, alpha, chi)
-                if hrA > max_val
-                        max_val = hrA
-                end
+    for nA in 0:N_A, nB in 0:N_B
+        if nA != 0
+            hrA = nA*simple_weak_strong_nr_hop_rate_A(nA, nB, alpha, chi)
+            if hrA > max_val
+                    max_val = hrA
             end
-            if nB != 0
-                hrB = nB*simple_weak_strong_nr_hop_rate_B(nA, nB, alpha, chi)
-                if hrB > max_val
-                        max_val = hrB
-                end
+        end
+
+        if nB != 0
+            hrB = nB*simple_weak_strong_nr_hop_rate_B(nA, nB, alpha, chi)
+            if hrB > max_val
+                    max_val = hrB
             end
         end
     end

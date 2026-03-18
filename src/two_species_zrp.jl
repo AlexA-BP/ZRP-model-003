@@ -22,12 +22,12 @@ function main_dev(;
     # function paramters, for now hardcoded
     num_particles_A=5000,
     num_particles_B=5000,
-    system_size=10,
+    system_size=10_000,
     bc="p",
     alpha=0., 
     chi=3., 
-    phys_time=10.,
-    chunk_size=10,
+    phys_time=100_000.,
+    chunk_size=10_000,
     time_steps_between_snapshots=1,
     fname="./data/two_species.h5"
 )
@@ -54,10 +54,10 @@ function main_dev(;
     # handle function input and create necessary parameters for everything
     model = ModelParameters(
         Ns, 
-        num_spec,
-        N,
         L,
         phys_t,
+        num_spec,
+        N,
         num_tsteps,
         dt,
         bc,
@@ -72,6 +72,7 @@ function main_dev(;
     # setup hdf5
     setup_hdf5(fname, model, state, chunk)
     
+    # return (fname, model, state, modelfunc, chunk, rng)
     run_and_write_chunked_simulation(
         fname,
         model,
@@ -80,6 +81,10 @@ function main_dev(;
         chunk,
         rng,
     )
-    return (model, state, chunk)
+    # return (model, state, chunk)
+    return nothing
+
 
 end
+
+main_dev()

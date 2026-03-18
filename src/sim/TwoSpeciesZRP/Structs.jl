@@ -5,11 +5,13 @@
 abstract type AbstractParameters end
 
 struct ModelParameters{T<:Integer, S<:Real, U<:AbstractString} <: AbstractParameters
+    # supplied directly
     Ns::Vector{T}
-    num_spec::T
-    N::T
     L::T
     phys_t::S
+    # determined by model
+    num_spec::T
+    N::T
     num_tsteps::T
     dt::S
     bc::U
@@ -79,19 +81,19 @@ end
 struct Chunks{T<:Integer}
     size::T
     num::T
-    time_steps_between_saves::T
+    snapshot_phys_time_diff::T
     function Chunks{T}(
-        size::T, time_steps_between_saves::T, total_timesteps::T, dt::S
+        size::T, snapshot_phys_time_diff::T, total_timesteps::T, dt::S
     ) where {T<:Integer, S<:Real}
-        num = div(total_timesteps, size*time_steps_between_saves)
-        time_steps_between_saves = floor(time_steps_between_saves / dt)
-        new(size, num, time_steps_between_saves)
+        num = div(total_timesteps, size*snapshot_phys_time_diff)
+        snapshot_phys_time_diff = floor(snapshot_phys_time_diff / dt)
+        new(size, num, snapshot_phys_time_diff)
     end
 end
 function Chunks(
-    size::T, time_steps_between_saves::T, total_timesteps::T, dt::S
+    size::T, snapshot_phys_time_diff::T, total_timesteps::T, dt::S
 ) where {T<:Integer, S<:Real}
-    return Chunks{T}(size, time_steps_between_saves, total_timesteps, dt)
+    return Chunks{T}(size, snapshot_phys_time_diff, total_timesteps, dt)
 end
 
 # 
