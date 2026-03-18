@@ -9,13 +9,15 @@ struct ModelParameters{T<:Integer, S<:Real, U<:AbstractString} <: AbstractParame
     num_spec::T
     N::T
     L::T
-    t_tot::T
+    phys_t::S
+    num_tsteps::T
     dt::S
     bc::U
     alpha::S
     chi::S
     hop_directions::Tuple{T, T}
 end
+
 
 struct ModelFunctions{F1, F2 <: Function} <: AbstractParameters
     hop_rate::F1
@@ -79,16 +81,17 @@ struct Chunks{T<:Integer}
     num::T
     time_steps_between_saves::T
     function Chunks{T}(
-        size::T, time_steps_between_saves::T, total_timesteps::T
-    ) where {T<:Integer}
+        size::T, time_steps_between_saves::T, total_timesteps::T, dt::S
+    ) where {T<:Integer, S<:Real}
         num = div(total_timesteps, size*time_steps_between_saves)
+        time_steps_between_saves = floor(time_steps_between_saves / dt)
         new(size, num, time_steps_between_saves)
     end
 end
 function Chunks(
-    size::T, time_steps_between_saves::T, total_timesteps::T
-) where T<:Integer
-    return Chunks{T}(size, time_steps_between_saves, total_timesteps)
+    size::T, time_steps_between_saves::T, total_timesteps::T, dt::S
+) where {T<:Integer, S<:Real}
+    return Chunks{T}(size, time_steps_between_saves, total_timesteps, dt)
 end
 
 # 

@@ -21,7 +21,8 @@ function setup_hdf5(
         attrs(fid)["rho_A"] = model.Ns[1] / model.L
         attrs(fid)["rho_B"] = model.Ns[2] / model.L
         attrs(fid)["rho"] = model.N / model.L
-        attrs(fid)["t_tot"] = model.t_tot
+        attrs(fid)["phys_time"] = model.phys_t
+        attrs(fid)["num_tsteps"] = model.num_tsteps
         attrs(fid)["dt"] = model.dt
         attrs(fid)["bc"] = model.bc
         attrs(fid)["alpha"] = model.alpha
@@ -97,8 +98,8 @@ function run_and_write_chunked_simulation(
                 rng,
             )
     
-            # lattice_id[:, :, chunk_interval] = lattice_chunk
-            # times_id[chunk_interval] = times_chunk
+            lattice_id[:, :, chunk_interval] = lattice_chunk
+            times_id[chunk_interval] = times_chunk
         end
     end
     return nothing
@@ -124,8 +125,8 @@ function fill_simulation_chunk!(
                 rng,
             )
         end
-        # lattice_chunk[:, :, k] = state.lattice
-        # times_chunk[k] = (chunk_start + k)*chunk.time_steps_between_saves
+        lattice_chunk[:, :, k] = state.lattice
+        times_chunk[k] = (chunk_start + k)*chunk.time_steps_between_saves
     end
     return nothing
 end

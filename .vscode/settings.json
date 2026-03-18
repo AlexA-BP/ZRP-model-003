@@ -1,3 +1,4 @@
 {
-    "vim.useSystemClipboard": true
+    "vim.useSystemClipboard": true,
+    "julia.environmentPath": "/home/aarnhold/Projects/ZRP-model-003"
 }
