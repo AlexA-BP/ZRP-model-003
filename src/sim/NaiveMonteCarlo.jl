@@ -1,4 +1,4 @@
-function kinetic_monte_carlo_step!(
+function naive_monte_carlo_step!(
     state::NSpeciesState,
     model::ModelParameters,
     modelfunc::ModelFunctions,

@@ -7,35 +7,40 @@ Czech-list
     [ ] simulation  
 =#
 using Random
+using Format
 
 include("./sim/TwoSpeciesZRP/Structs.jl")
-include("./sim/HoppingRates.jl")
+include("./sim/TransitionRates.jl")
 include("./sim/BoundaryConditions.jl")
 include("./sim/filehandling.jl")
-include("./sim/kinetic_monte_carlo.jl")
+include("./sim/NaiveMonteCarlo.jl")
+include("./sim/RejectionKineticMonteCarlo.jl")
 
-import .HoppingRates: hop_rates
+import .TransitionRates: TransitionRatesDict
 using .BoundaryConditions
 
 
 function main_dev(;
     # function paramters, for now hardcoded
-    num_particles_A=5000,
-    num_particles_B=5000,
-    system_size=10_000,
+    num_particles_A=5,
+    num_particles_B=5,
+    system_size=10,
     bc="p",
     alpha=0., 
     chi=3., 
-    phys_time=100_000.,
-    chunk_size=10_000,
-    time_steps_between_snapshots=1,
-    fname="./data/two_species.h5"
+    phys_time=10.,
+    chunk_size=10,
+    chunk_num=10,
+    snapshot_phys_time_diff=1,
+    dirname="./data/twospecies/"
 )
+    
 
-
-    # const rng = Xoshiro(2) 
-    rng = Random.default_rng()
-    this_hop_rate, get_dt = hop_rates["simple_weak_strong_nr_hop_rate"]
+    rng = Xoshiro(2) 
+    # rng = Random.default_rng()
+    this_hop_rate = (
+        TransitionRatesDict["simple_weak_strong_nr_hop_rate"]
+    )
 
 
     # setup parameters for model
@@ -44,12 +49,11 @@ function main_dev(;
     N = num_particles_A + num_particles_B
     L = system_size
     phys_t = phys_time
-    dt = get_dt(num_particles_A, num_particles_B, alpha, chi)
-    num_tsteps::Integer = floor(phys_time / dt)
     bc = bc
     alpha = alpha
     chi = chi
     hop_directions = (1, -1)
+
 
     # handle function input and create necessary parameters for everything
     model = ModelParameters(
@@ -58,33 +62,43 @@ function main_dev(;
         phys_t,
         num_spec,
         N,
-        num_tsteps,
-        dt,
         bc,
         alpha,
         chi,
         hop_directions
     )
-    state = NSpeciesState(model, rng)
-    modelfunc = ModelFunctions(this_hop_rate, bcs[bc])
-    chunk = Chunks(chunk_size, time_steps_between_snapshots, num_tsteps, dt)    
 
-    # setup hdf5
-    setup_hdf5(fname, model, state, chunk)
-    
-    # return (fname, model, state, modelfunc, chunk, rng)
-    run_and_write_chunked_simulation(
-        fname,
-        model,
-        state,
-        modelfunc,
-        chunk,
-        rng,
-    )
+    modelfunc = ModelFunctions(this_hop_rate, bcs[bc])
+    state = NSpeciesState(model, modelfunc, rng)
+    # chunk = NaiveChunks(chunk_size, time_steps_between_snapshots, num_tsteps, dt)    
+    chunk = Chunks(chunk_size, chunk_num, snapshot_phys_time_diff)    
+
+
+    # set up file structure
+    if !isdir(dirname)
+        mkdir(dirname) 
+    end
+    fcnt = 1
+    while state.t <= model.phys_t
+        
+        fname = format(dirname * "trial_{1:03d}", fcnt)
+        # setup hdf5
+        setup_hdf5(fname, model, state, chunk)
+        
+        # return (fname, model, state, modelfunc, chunk, rng)
+        run_and_write_chunked_simulation(
+            fname,
+            model,
+            state,
+            modelfunc,
+            chunk,
+            rng,
+        )
+
+        fcnt += 1
+    end
     # return (model, state, chunk)
     return nothing
 
 
 end
-
-main_dev()

@@ -1,6 +1,4 @@
-## ================================================== ##
-##          Taking care of model parameters           ##
-## ================================================== ##
+
 
 abstract type AbstractParameters end
 
@@ -12,8 +10,6 @@ struct ModelParameters{T<:Integer, S<:Real, U<:AbstractString} <: AbstractParame
     # determined by model
     num_spec::T
     N::T
-    num_tsteps::T
-    dt::S
     bc::U
     alpha::S
     chi::S
@@ -28,17 +24,29 @@ end
 
 abstract type AbstractState end
 
-struct NSpeciesState{T <: Integer} <: AbstractState
+mutable struct NSpeciesState{T <: Integer, S <: Real} <: AbstractState
     particles::Vector{T}
     species::Vector{T}
     lattice::Matrix{T}
+    t::S
+    dt::S
+    trans_rates::Matrix{S}
+    r0::S
 end
 
-function NSpeciesState(model::ModelParameters, rng::AbstractRNG)
+function NSpeciesState(
+    model::ModelParameters, 
+    modelfunc::ModelFunctions, 
+    rng::AbstractRNG
+)
     particles = _init_particles(model.N, model.L, rng)
     species = _init_species(particles, model.Ns)
     lattice = _init_lattice(particles, species, model.L)
-    return NSpeciesState(particles, species, lattice)
+    trans_rates = _init_trans_rates(
+        particles, species, lattice, model, modelfunc
+    )
+    r0 = maximum(trans_rates)
+    return NSpeciesState(particles, species, lattice, 0., 0., trans_rates, r0)
 end
 
 function _init_particles(num_particles, lattice_size, rng::AbstractRNG) 
@@ -77,12 +85,38 @@ function _init_lattice(particles, species, L)
     return lattice
 end
 
+function _init_trans_rates(
+    particles, 
+    species, 
+    lattice, 
+    model::ModelParameters, 
+    modelfunc::ModelFunctions
+)
+    trans_rates = Matrix{Float64}(undef, size(lattice))
+    for i in 1:model.L
+        nA = lattice[i, 1] 
+        nB = lattice[i, 2]
+        
+        trans_rates[i, 1] = modelfunc.hop_rate(
+            1, nA, nB, model.alpha, model.chi
+        )
+
+        trans_rates[i, 2] = modelfunc.hop_rate(
+            2, nA, nB, model.alpha, model.chi
+        )
+    end
+    return trans_rates
+end
+
 # TODO: Maybe move this to filehandling?
-struct Chunks{T<:Integer}
+
+abstract type AbstractChunks end
+
+struct NaiveChunks{T<:Integer} <: AbstractChunks
     size::T
     num::T
     snapshot_phys_time_diff::T
-    function Chunks{T}(
+    function NaiveChunks{T}(
         size::T, snapshot_phys_time_diff::T, total_timesteps::T, dt::S
     ) where {T<:Integer, S<:Real}
         num = div(total_timesteps, size*snapshot_phys_time_diff)
@@ -90,10 +124,14 @@ struct Chunks{T<:Integer}
         new(size, num, snapshot_phys_time_diff)
     end
 end
-function Chunks(
+function NaiveChunks(
     size::T, snapshot_phys_time_diff::T, total_timesteps::T, dt::S
 ) where {T<:Integer, S<:Real}
     return Chunks{T}(size, snapshot_phys_time_diff, total_timesteps, dt)
 end
 
-# 
+struct Chunks{T<:Integer} <: AbstractChunks
+    size::T
+    num::T
+    snapshot_phys_time_diff::T
+end

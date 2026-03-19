@@ -24,8 +24,6 @@ function setup_hdf5(
         attrs(fid)["rho_B"] = model.Ns[2] / model.L
         attrs(fid)["rho"] = model.N / model.L
         attrs(fid)["phys_time"] = model.phys_t
-        attrs(fid)["num_tsteps"] = model.num_tsteps
-        attrs(fid)["dt"] = model.dt
         attrs(fid)["bc"] = model.bc
         attrs(fid)["alpha"] = model.alpha
         attrs(fid)["chi"] = model.chi
@@ -71,7 +69,7 @@ function setup_hdf5(
         create_dataset(
             fid,
             "times",
-            datatype(Int),
+            datatype(Float64),
             dataspace((chunk.num*chunk.size,)),
             chunk=(chunk.size,),
             blosc=blosc_compression_level,
@@ -103,7 +101,7 @@ function run_and_write_chunked_simulation(
         lattice_chunk = zeros(
             eltype(state.lattice), (model.L, model.num_spec, chunk.size)
         )
-        times_chunk = zeros(Int, (chunk.size,))
+        times_chunk = zeros(Float64, (chunk.size,))
 
         # loop over chunks
         for i in 1:chunk.num
@@ -113,7 +111,7 @@ function run_and_write_chunked_simulation(
             chunk_end_time = i*chunk.size
             chunk_time_interval = (chunk_start_time+1):chunk_end_time
 
-            fill_simulation_chunk!(
+            fill_simulation_chunk_rejection_kinetic_monte_carlo!(
                 particles_chunk, 
                 lattice_chunk, 
                 times_chunk, 
@@ -133,7 +131,11 @@ function run_and_write_chunked_simulation(
     return nothing
 end
 
-function fill_simulation_chunk!(
+"""
+Fill the simulation chunks for "Particles", "Lattice" and "Times" for the 
+naive monte carlo algorithm.  
+"""
+function fill_simulation_chunk_naive_monte_carlo!(
     particles_chunk::AbstractArray,
     lattice_chunk::AbstractArray,
     times_chunk::AbstractVector,
@@ -151,7 +153,7 @@ function fill_simulation_chunk!(
                 (chunk_start_time + (k-1))*chunk.snapshot_phys_time_diff + ti
             )
 
-            kinetic_monte_carlo_step!(
+            naive_monte_carlo_step!(
                 state, 
                 model, 
                 modelfunc,
@@ -163,6 +165,44 @@ function fill_simulation_chunk!(
         particles_chunk[:, k] = state.particles
         lattice_chunk[:, :, k] = state.lattice
         times_chunk[k] = (chunk_start_time + k)*chunk.snapshot_phys_time_diff
+    end
+    return nothing
+end
+
+"""
+Fill the simulation chunks for "Particles", "Lattice" and "Times" for the 
+rejection kinetic monte carlo algorithm.  
+"""
+function fill_simulation_chunk_rejection_kinetic_monte_carlo!(
+    particles_chunk::AbstractArray,
+    lattice_chunk::AbstractArray,
+    times_chunk::AbstractVector,
+    model::ModelParameters,
+    state::NSpeciesState,
+    modelfunc::ModelFunctions,
+    chunk::Chunks,
+    chunk_start_time::Integer,
+    rng::AbstractRNG,
+)
+    for k in 1:chunk.size
+        current_phys_time_diff = 0
+        while current_phys_time_diff < chunk.snapshot_phys_time_diff
+
+            rejection_kinetic_monte_carlo_step!(
+                state, 
+                model, 
+                modelfunc,
+                rng,
+            )
+
+            current_phys_time_diff += state.dt
+            
+        end
+
+
+        particles_chunk[:, k] = state.particles
+        lattice_chunk[:, :, k] = state.lattice
+        times_chunk[k] = state.t
     end
     return nothing
 end

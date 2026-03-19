@@ -1,5 +1,6 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Format = "1fa38f19-a742-5d3f-a2b9-30dd87b9d5f8"
 H5Zblosc = "c8ec2601-a99c-407f-b158-e79c03c2f5f7"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
